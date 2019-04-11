@@ -12,6 +12,7 @@
 #define ASPELL_PATH "/usr/bin/aspell"
 #define VERSION_ARG "-v"
 
+int is_command(char *line, int len);
 int is_camel(char *line, int len);
 int aspell_normal(int *fd);
 int aspell_multi(int *fd, int *copy_fd);
@@ -63,6 +64,14 @@ int main(int argc, char *argv[]) {
   }
   
   while((read = getline(&line, &len, stdin)) != -1) {
+
+    // commands need to be setnt to both instances.
+    if(is_command(line, read)) {
+      write(aspell_multi_fd, line, read);
+      write(aspell_normal_fd, line, read);
+      continue;
+    }
+    
     if(is_camel(line, read) > 0) {
       current_fd = aspell_multi_fd;
     } else {
@@ -77,15 +86,45 @@ int main(int argc, char *argv[]) {
   waitpid(-1, &wstatus, 0);
 }
 
+int is_command(char *line, int len)
+{
+  if(len < 1) {
+    return 0; 
+  }
+
+  switch(line[0]) {
+  case '*':
+  case '&':
+  case '@':
+  case '+':
+  case '~':
+  case '#':
+  case '!':
+  case '%':
+  case '`':
+    return 1;
+  }
+
+  return 0; 
+}
+
 int is_camel(char *line, int len)
 {
-  int i;
+  int i,j = 0; 
   int count = 0;
 
+  if(len < 1) {
+    return 0;
+  }
+
+  if(line[0] == '^') {
+    j = 1; 
+  }
+  
   // If capitale found anywhere but the first char.
-  for(i = 0; i < len; i++) {
+  for(i = j; i < len; i++) {
     if(line[i] >= 65 && line[i] <= 90) {
-      count += i;
+      count += (i-j);
     }
   }
 
